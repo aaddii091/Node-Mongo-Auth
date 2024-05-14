@@ -1,25 +1,23 @@
 // IMPORTS
 
-const app = require("./app");
-const dotenv = require("dotenv");
-const mongoose = require("mongoose");
+const app = require('./app');
+const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 
 //config for .env
 
-dotenv.config({ path: "./config.env" });
+dotenv.config({ path: './config.env' });
 
 // CONNECTING MONGODB
 
 mongoose
-  .connect(process.env.DATABASE, {
-    useNewUrlParser: true,
-  })
+  .connect(process.env.DATABASE)
   .then((con) => {
     // console.log(con.connections);
-    console.log("DB connection successful!");
+    console.log('DB connection successful!');
   })
   .catch((error) => {
-    console.error("Error connecting to MongoDB:", error.message);
+    console.error('Error connecting to MongoDB:', error.message);
     process.exit(1); // Exit with an error code
   });
 

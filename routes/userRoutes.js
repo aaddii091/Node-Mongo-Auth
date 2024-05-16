@@ -10,6 +10,11 @@ router.get('/login', authController.protect, (req, res, next) => {
 
 router.post('/signup', authController.signUp);
 router.post('/login', authController.login);
+router.post(
+  '/updatePassword',
+  authController.protect,
+  authController.updatePassword
+);
 
 router.post('/forgotPassword', authController.forgotPassword);
 router.post('/resetPassword/:token', authController.resetPassword);

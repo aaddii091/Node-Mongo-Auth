@@ -135,3 +135,21 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     token,
   });
 });
+
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  //geting user from collection
+  const user = await User.findById(req.user._id.toString()).select('+password');
+  //checking if the current password is correct
+  if (user.correctPassword(user.password, req.body.password)) {
+    console.log('correct password');
+    user.password = req.body.newPassword;
+    user.passwordConfirm = req.body.newPasswordConfirm;
+    await user.save();
+  }
+  const token = signToken(user._id);
+  res.status(200).json({
+    status: 'success',
+    message: 'Logged In Successfully',
+    token: token,
+  });
+});

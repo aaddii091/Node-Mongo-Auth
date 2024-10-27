@@ -8,18 +8,32 @@ const mongoose = require('mongoose');
 
 dotenv.config({ path: './config.env' });
 
-// CONNECTING MONGODB
-
-mongoose
-  .connect(process.env.DATABASE)
-  .then((con) => {
-    // console.log(con.connections);
+// Wrap mongoose connection in a try-catch
+const connectDB = async () => {
+  try {
+    await mongoose.connect(process.env.DATABASE);
     console.log('DB connection successful!');
-  })
-  .catch((error) => {
-    console.error('Error connecting to MongoDB:', error.message);
-    process.exit(1); // Exit with an error code
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    // Don't exit process in production
+    if (process.env.NODE_ENV === 'development') {
+      process.exit(1);
+    }
+  }
+};
+
+// Connect to database
+connectDB();
+
+// Add error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    status: 'error',
+    message: 'Something went wrong!',
+    error: process.env.NODE_ENV === 'development' ? err : {}
   });
+});
 
 const port = process.env.PORT || 3000;
 

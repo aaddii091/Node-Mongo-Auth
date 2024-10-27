@@ -1,6 +1,6 @@
 // IMPORTS
 
-const app = require('./app');
+const app = require('./index');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 
@@ -34,3 +34,6 @@ process.on('unhandledRejection', (err) => {
     process.exit(1);
   });
 });
+
+// Export the app for Vercel
+module.exports = app;

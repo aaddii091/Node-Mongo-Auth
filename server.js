@@ -8,46 +8,54 @@ const mongoose = require('mongoose');
 
 dotenv.config({ path: './config.env' });
 
-// Wrap mongoose connection in a try-catch
+// Cache the database connection
+let isConnected = false;
+
+// Improved database connection with timeout handling
 const connectDB = async () => {
+  if (isConnected) return;
+
   try {
-    await mongoose.connect(process.env.DATABASE);
+    await mongoose.connect(process.env.DATABASE, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      bufferCommands: true, // Changed to true
+      serverSelectionTimeoutMS: 5000, // 5 seconds
+      socketTimeoutMS: 10000, // 10 seconds
+    });
+    
+    isConnected = true;
     console.log('DB connection successful!');
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    // Don't exit process in production
-    if (process.env.NODE_ENV === 'development') {
-      process.exit(1);
-    }
+    throw error;
   }
 };
 
-// Connect to database
-connectDB();
+// Connect to DB immediately when server starts
+connectDB().catch(console.error);
 
-// Add error handling middleware
+// Add request timeout middleware
+app.use((req, res, next) => {
+  req.setTimeout(10000); // 10 second timeout for requests
+  next();
+});
+
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err);
-  res.status(500).json({
+  res.status(err.statusCode || 500).json({
     status: 'error',
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err : {}
+    message: err.message || 'Something went wrong!'
   });
 });
 
-const port = process.env.PORT || 3000;
-
-const server = app.listen(port, () => {
-  console.log(`Your server is running on port ${port}`);
-});
-
-process.on('unhandledRejection', (err) => {
-  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.log(err.name, err.message);
-  server.close(() => {
-    process.exit(1);
+// Only start server in development
+if (process.env.NODE_ENV !== 'production') {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`Development server running on port ${port}`);
   });
-});
+}
 
-// Export the app for Vercel
 module.exports = app;

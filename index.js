@@ -27,7 +27,7 @@ app.use((req, res, next) => {
 
 // Test route
 app.get('/', (req, res) => {
-  res.status(200).send('ZenServer is Running !');
+  res.status(200).send(`ZenServer is Running ! ${process.env.DATABASE}`);
 });
 
 app.use('/api/v1/users', userRoutes);

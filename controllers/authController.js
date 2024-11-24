@@ -5,7 +5,7 @@ const User = require('./../models/userModel');
 const jwt = require('jsonwebtoken');
 const { promisify } = require('util');
 const crypto = require('crypto');
-const mongoose = require('mongoose');
+const { log } = require('console');
 
 const signToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET, {
@@ -13,91 +13,43 @@ const signToken = (id) => {
   });
 };
 
-exports.login = async (req, res, next) => {
-  try {
-    console.log('Login attempt received:', { email: req.body.email });
+exports.login = catchAsync(async (req, res, next) => {
+  const { email, password } = req.body;
+  if (!email || !password) {
+    return next(new AppError('Please provide username and password', 400));
+  }
+  const user = await User.findOne({ email }).select('+password');
+  if (!user || !(await user.correctPassword(password, user.password))) {
+    return next(new AppError('User or Password is Wrong ', 401));
+  }
+  const token = signToken(user._id);
+  res.status(200).json({
+    status: 'success',
+    message: 'Logged In Successfully',
+    token: token,
+  });
+});
+exports.signUp = catchAsync(async (req, res, next) => {
+  console.log(req.body);
 
-    const { email, password } = req.body;
-    if (!email || !password) {
-      console.log('Missing credentials');
-      return res.status(400).json({
-        status: 'fail',
-        message: 'Please provide username and password'
-      });
-    }
+  const newUser = await User.create({
+    name: req.body.name,
+    email: req.body.email,
+    password: req.body.password,
+    passwordConfirm: req.body.passwordConfirm,
+  });
 
-    // Ensure we're connected to the database
-    if (!mongoose.connection.readyState) {
-      await mongoose.connect(process.env.DATABASE, {
-        useNewUrlParser: true,
-        useUnifiedTopology: true,
-        bufferCommands: true
-      });
-    }
+  const token = signToken(newUser._id);
 
-    const user = await User.findOne({ email }).select('+password');
-    console.log('User found:', !!user);
-
-    if (!user || !(await user.correctPassword(password, user.password))) {
-      console.log('Invalid credentials');
-      return res.status(401).json({
-        status: 'fail',
-        message: 'User or Password is Wrong'
-      });
-    }
-
-    const token = signToken(user._id);
-    console.log('Login successful for:', email);
-
-    res.status(200).json({
-      status: 'success',
-      message: 'Logged In Successfully',
+  // Send a success response
+  res.status(200).json({
+    status: 'success',
+    data: {
+      user: newUser, // Include the newly created user in the response
       token: token,
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'An error occurred during login',
-      error: error.message,
-    });
-  }
-};
-
-exports.signUp = async (req, res, next) => {
-  try {
-    console.log('Signup attempt:', { email: req.body.email });
-
-    const newUser = await User.create({
-      name: req.body.name,
-      email: req.body.email,
-      password: req.body.password,
-      passwordConfirm: req.body.passwordConfirm,
-    });
-
-    const token = signToken(newUser._id);
-    console.log('Signup successful for:', req.body.email);
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        user: {
-          id: newUser._id,
-          name: newUser.name,
-          email: newUser.email
-        },
-        token: token,
-      },
-    });
-  } catch (error) {
-    console.error('Signup error:', error);
-    res.status(400).json({
-      status: 'fail',
-      message: error.message
-    });
-  }
-};
-
+    },
+  });
+});
 exports.protect = catchAsync(async (req, res, next) => {
   let token;
   if (
@@ -115,6 +67,7 @@ exports.protect = catchAsync(async (req, res, next) => {
   const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
 
   const freshUser = await User.findById(decoded.id);
+    console.log(freshUser)
   if (!freshUser) {
     return next(
       new AppError('The user belonging to this token does no longer exist')
@@ -122,6 +75,34 @@ exports.protect = catchAsync(async (req, res, next) => {
   }
 
   req.user = freshUser;
+  next();
+});
+exports.isAdmin = catchAsync(async (req, res, next) => {
+  let token;
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return next(
+      new AppError('You are not logged in! Please log in to get access.', 401)
+    );
+  }
+  const decoded = await promisify(jwt.verify)(token, process.env.JWT_SECRET);
+
+  const freshUser = await User.findById(decoded.id);
+  console.log(freshUser)
+  if (freshUser.role !== 'admin') {
+    return next(
+      new AppError('The user is not an admin')
+    );
+  }
+
+  req.user = freshUser;
+
   next();
 });
 

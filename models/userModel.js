@@ -8,6 +8,8 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Please tell us your name!'],
   },
+  role: { type: String, enum: ['admin', 'user'], default: 'admin' },
+  accessibleQuizzes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Quiz' }], 
   email: {
     type: String,
     lowercase: true,

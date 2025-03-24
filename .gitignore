@@ -132,3 +132,7 @@ dist
 
 #config .env
 config.env
+.vercel
+
+.env*.local
+.vercel

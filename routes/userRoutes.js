@@ -8,7 +8,15 @@ router.get('/login', authController.protect, (req, res, next) => {
   });
 });
 
+router.get('/protect-test', authController.isAdmin, (req, res, next) => {
+  res.status(200).json({
+    message:"Working Protect"
+  })
+})
 router.post('/signup', authController.signUp);
+router.post('/test', (req, res) => {
+  res.status(200).send('working');
+})  ;
 router.post('/login', authController.login);
 router.post(
   '/updatePassword',

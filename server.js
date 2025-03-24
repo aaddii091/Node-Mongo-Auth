@@ -1,6 +1,6 @@
 // IMPORTS
 
-const app = require('./app');
+const app = require('./index');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 
@@ -8,29 +8,54 @@ const mongoose = require('mongoose');
 
 dotenv.config({ path: './config.env' });
 
-// CONNECTING MONGODB
+// Cache the database connection
+let isConnected = false;
 
-mongoose
-  .connect(process.env.DATABASE)
-  .then((con) => {
-    // console.log(con.connections);
+// Improved database connection with timeout handling
+const connectDB = async () => {
+  if (isConnected) return;
+
+  try {
+    await mongoose.connect(process.env.DATABASE, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+      bufferCommands: true, // Changed to true
+      serverSelectionTimeoutMS: 5000, // 5 seconds
+      socketTimeoutMS: 10000, // 10 seconds
+    });
+    
+    isConnected = true;
     console.log('DB connection successful!');
-  })
-  .catch((error) => {
-    console.error('Error connecting to MongoDB:', error.message);
-    process.exit(1); // Exit with an error code
-  });
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
+};
 
-const port = process.env.PORT || 3000;
+// Connect to DB immediately when server starts
+connectDB().catch(console.error);
 
-const server = app.listen(port, () => {
-  console.log(`Your server is running on port ${port}`);
+// Add request timeout middleware
+app.use((req, res, next) => {
+  req.setTimeout(10000); // 10 second timeout for requests
+  next();
 });
 
-process.on('unhandledRejection', (err) => {
-  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
-  console.log(err.name, err.message);
-  server.close(() => {
-    process.exit(1);
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.statusCode || 500).json({
+    status: 'error',
+    message: err.message || 'Something went wrong!'
   });
 });
+
+// Only start server in development
+if (process.env.NODE_ENV !== 'production') {
+  const port = process.env.PORT || 3000;
+  app.listen(port, () => {
+    console.log(`Development server running on port ${port}`);
+  });
+}
+
+module.exports = app;
